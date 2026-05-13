@@ -107,6 +107,73 @@
         .menu-item.danger:hover:not(:disabled) { background: var(--aws-red-bg); color: var(--aws-red); }
         .menu-sep { height: 1px; background: var(--aws-border-light); margin: 4px 0; }
 
+        /* Launch modal */
+        .modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(16, 25, 35, 0.55);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            z-index: 50;
+            padding: 60px 20px 20px;
+            overflow-y: auto;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,28,36,0.25);
+            width: 100%;
+            max-width: 520px;
+            border: 1px solid var(--aws-border);
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--aws-border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-title { font-size: 18px; font-weight: 700; }
+        .modal-close {
+            background: none; border: none; cursor: pointer;
+            font-size: 18px; color: var(--aws-gray);
+            padding: 4px 8px; border-radius: 3px;
+        }
+        .modal-close:hover { background: var(--aws-gray-bg); color: var(--aws-text); }
+        .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+        .form-field { display: flex; flex-direction: column; gap: 4px; }
+        .form-field label {
+            font-size: 13px; font-weight: 700; color: var(--aws-text);
+        }
+        .form-field .hint {
+            font-size: 12px; color: var(--aws-text-secondary);
+        }
+        .form-field input, .form-field select {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 6px 10px;
+            border: 1px solid var(--aws-border);
+            border-radius: 4px;
+            outline: none;
+            background: #fff;
+            color: var(--aws-text);
+        }
+        .form-field input:focus, .form-field select:focus {
+            border-color: var(--aws-blue);
+            box-shadow: 0 0 0 2px rgba(9,114,211,.2);
+        }
+        .modal-footer {
+            padding: 14px 20px;
+            border-top: 1px solid var(--aws-border-light);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .field-error {
+            font-size: 12px; color: var(--aws-red); min-height: 14px;
+        }
+
         .btn {
             font-family: inherit;
             font-size: 14px;
@@ -325,6 +392,8 @@
             .menu { background: #16212f; border-color: var(--aws-border); }
             .menu-item { color: var(--aws-text); }
             .menu-sep { background: var(--aws-border-light); }
+            .modal { background: #16212f; border-color: var(--aws-border); }
+            .form-field input, .form-field select { background: #0f1b2a; color: var(--aws-text); border-color: var(--aws-border); }
         }
     </style>
 </head>
@@ -392,6 +461,53 @@
     </div>
 </div>
 
+<div class="modal-backdrop" id="launch-modal" role="dialog" aria-modal="true" aria-labelledby="launch-modal-title">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="launch-modal-title">Launch an instance</div>
+            <button class="modal-close" id="launch-close" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-field">
+                <label for="launch-name">Name</label>
+                <input type="text" id="launch-name" placeholder="e.g. my-web-server" autocomplete="off"/>
+                <div class="hint">A friendly name tag for the instance.</div>
+            </div>
+            <div class="form-field">
+                <label for="launch-type">Instance type</label>
+                <select id="launch-type">
+                    <option value="t2.micro">t2.micro (1 vCPU, 1 GiB)</option>
+                    <option value="t3.micro">t3.micro (2 vCPU, 1 GiB)</option>
+                    <option value="t3.small">t3.small (2 vCPU, 2 GiB)</option>
+                    <option value="t3.medium" selected>t3.medium (2 vCPU, 4 GiB)</option>
+                    <option value="t3.large">t3.large (2 vCPU, 8 GiB)</option>
+                    <option value="m5.large">m5.large (2 vCPU, 8 GiB)</option>
+                    <option value="m5.xlarge">m5.xlarge (4 vCPU, 16 GiB)</option>
+                    <option value="c5.2xlarge">c5.2xlarge (8 vCPU, 16 GiB)</option>
+                    <option value="r6i.xlarge">r6i.xlarge (4 vCPU, 32 GiB)</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="launch-az">Availability Zone</label>
+                <select id="launch-az">
+                    <option value="us-east-1a" selected>us-east-1a</option>
+                    <option value="us-east-1b">us-east-1b</option>
+                    <option value="us-east-1c">us-east-1c</option>
+                    <option value="us-east-1d">us-east-1d</option>
+                    <option value="us-west-2a">us-west-2a</option>
+                    <option value="us-west-2b">us-west-2b</option>
+                    <option value="eu-west-1a">eu-west-1a</option>
+                </select>
+            </div>
+            <div class="field-error" id="launch-error"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" id="launch-cancel">Cancel</button>
+            <button class="btn primary" id="launch-submit">Launch instance</button>
+        </div>
+    </div>
+</div>
+
 <script id="ext-apps-src" type="text/plain">
 $unsafe{extAppsJs}
 </script>
@@ -404,8 +520,10 @@ $unsafe{extAppsJs}
     const { App } = await import(url);
     URL.revokeObjectURL(url);
 
-    const app = new App({ name: "list-ec2-instances", version: "1.0.0" });
-    await app.connect();
+    const app = new App(
+        { name: "list-ec2-instances", version: "1.0.0" },
+        { tools: { listChanged: false } },
+    );
 
     // Mock EC2 instance fleet
     const INSTANCES = [
@@ -779,6 +897,146 @@ $unsafe{extAppsJs}
         //     });
         // } catch (_) { /* best-effort */ }
     }
+
+    // ---- Launch instance modal ----
+    const launchModal = document.getElementById('launch-modal');
+    const launchName = document.getElementById('launch-name');
+    const launchType = document.getElementById('launch-type');
+    const launchAz = document.getElementById('launch-az');
+    const launchError = document.getElementById('launch-error');
+
+    function openLaunchModal() {
+        launchError.textContent = '';
+        launchName.value = '';
+        launchType.value = 't3.medium';
+        launchAz.value = 'us-east-1a';
+        launchModal.classList.add('open');
+        setTimeout(() => launchName.focus(), 50);
+    }
+    function closeLaunchModal() { launchModal.classList.remove('open'); }
+
+    document.getElementById('launch-btn').addEventListener('click', openLaunchModal);
+    document.getElementById('launch-cancel').addEventListener('click', closeLaunchModal);
+    document.getElementById('launch-close').addEventListener('click', closeLaunchModal);
+    launchModal.addEventListener('click', e => {
+        if (e.target === launchModal) closeLaunchModal();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && launchModal.classList.contains('open')) closeLaunchModal();
+    });
+
+    document.getElementById('launch-submit').addEventListener('click', async () => {
+        const name = launchName.value.trim();
+        const type = launchType.value;
+        const az = launchAz.value;
+        if (!name) {
+            launchError.textContent = 'Name is required.';
+            launchName.focus();
+            return;
+        }
+        if (INSTANCES.some(i => i.name === name)) {
+            launchError.textContent = 'An instance with that name already exists.';
+            return;
+        }
+        closeLaunchModal();
+
+        // Inject a chat prompt — the LLM should respond by calling the
+        // app-declared `createEC2Instance` tool (registered below).
+        const prompt =
+            'Please create a new EC2 instance by calling the createEC2Instance tool ' +
+            'with these arguments: name="' + name + '", instanceType="' + type + '", ' +
+            'availabilityZone="' + az + '".';
+        try {
+            await app.sendMessage({
+                role: "user",
+                content: [{ type: "text", text: prompt }],
+            });
+        } catch (err) {
+            console.error("Failed to send launch prompt", err);
+        }
+    });
+
+    // ---- App-declared tool: createEC2Instance ----
+    // Declaring the tool on the app (rather than the server) means we get
+    // first-party control over the UI update when the LLM calls it.
+
+    const CREATE_TOOL = {
+        name: "createEC2Instance",
+        title: "Create EC2 instance",
+        description: "Creates a new EC2 instance and adds it to the visible instance list.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                name: { type: "string", description: "Friendly name for the instance." },
+                instanceType: {
+                    type: "string",
+                    description: "Instance type, e.g. t3.medium, m5.large.",
+                },
+                availabilityZone: {
+                    type: "string",
+                    description: "Availability Zone, e.g. us-east-1a.",
+                },
+            },
+            required: ["name", "instanceType", "availabilityZone"],
+        },
+    };
+
+    app.onlisttools = async () => ({ tools: [CREATE_TOOL] });
+
+    app.oncalltool = async (params) => {
+        if (params.name !== "createEC2Instance") {
+            throw new Error("Unknown tool: " + params.name);
+        }
+        const args = params.arguments ?? {};
+        const name = String(args.name ?? "").trim();
+        const type = String(args.instanceType ?? "t3.medium").trim();
+        const az = String(args.availabilityZone ?? "us-east-1a").trim();
+        if (!name) {
+            return {
+                isError: true,
+                content: [{ type: "text", text: "name is required" }],
+            };
+        }
+
+        // Generate a pseudo instance id + private IP.
+        const hex = () => Math.floor(Math.random() * 16).toString(16);
+        const id = "i-0" + Array.from({ length: 16 }, hex).join("");
+        const privateIp = "10.0." + (Math.floor(Math.random() * 250) + 1) +
+                          "." + (Math.floor(Math.random() * 250) + 1);
+        const newInstance = {
+            name, id, state: "pending", type,
+            statusCheck: "Initializing", alarm: "No alarms", az,
+            publicIp: "-", privateIp, vpc: "vpc-0fa112233",
+            launchTime: new Date().toISOString(),
+        };
+        INSTANCES.unshift(newInstance);
+        render();
+
+        // Transition pending → running after a short delay.
+        setTimeout(() => {
+            const r = INSTANCES.find(x => x.id === id);
+            if (r && r.state === "pending") {
+                r.state = "running";
+                r.statusCheck = "2/2 checks passed";
+                r.publicIp = (Math.floor(Math.random() * 90) + 10) + "." +
+                             (Math.floor(Math.random() * 250) + 1) + "." +
+                             (Math.floor(Math.random() * 250) + 1) + "." +
+                             (Math.floor(Math.random() * 250) + 1);
+                render();
+            }
+        }, 2000);
+
+        return {
+            content: [{
+                type: "text",
+                text: "Launched " + id + " (" + type + ") in " + az +
+                      " with name \"" + name + "\". Current state: pending.",
+            }],
+        };
+    };
+
+    // Connect after handlers are registered so we don't miss any early notifications.
+    await app.connect();
 
     render();
 </script>
