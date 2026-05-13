@@ -520,10 +520,7 @@ $unsafe{extAppsJs}
     const { App } = await import(url);
     URL.revokeObjectURL(url);
 
-    const app = new App(
-        { name: "list-ec2-instances", version: "1.0.0" },
-        { tools: { listChanged: false } },
-    );
+    const app = new App({ name: "list-ec2-instances", version: "1.0.0" });
 
     // Mock EC2 instance fleet
     const INSTANCES = [
@@ -940,8 +937,35 @@ $unsafe{extAppsJs}
         }
         closeLaunchModal();
 
-        // Inject a chat prompt — the LLM should respond by calling the
-        // app-declared `createEC2Instance` tool (registered below).
+        // Optimistically add the new instance row so the UI reflects the launch
+        // immediately, independent of how the host routes the chat-side tool call.
+        const hex = () => Math.floor(Math.random() * 16).toString(16);
+        const id = "i-0" + Array.from({ length: 16 }, hex).join("");
+        const privateIp = "10.0." + (Math.floor(Math.random() * 250) + 1) +
+                          "." + (Math.floor(Math.random() * 250) + 1);
+        INSTANCES.unshift({
+            name, id, state: "pending", type,
+            statusCheck: "Initializing", alarm: "No alarms", az,
+            publicIp: "-", privateIp, vpc: "vpc-0fa112233",
+            launchTime: new Date().toISOString(),
+        });
+        render();
+
+        setTimeout(() => {
+            const r = INSTANCES.find(x => x.id === id);
+            if (r && r.state === "pending") {
+                r.state = "running";
+                r.statusCheck = "2/2 checks passed";
+                r.publicIp = (Math.floor(Math.random() * 90) + 10) + "." +
+                             (Math.floor(Math.random() * 250) + 1) + "." +
+                             (Math.floor(Math.random() * 250) + 1) + "." +
+                             (Math.floor(Math.random() * 250) + 1);
+                render();
+            }
+        }, 2000);
+
+        // Inject a chat prompt asking the LLM to call the server-declared
+        // `createEC2Instance` tool, so the launch is also visible to the chat.
         const prompt =
             'Please create a new EC2 instance by calling the createEC2Instance tool ' +
             'with these arguments: name="' + name + '", instanceType="' + type + '", ' +
@@ -956,86 +980,6 @@ $unsafe{extAppsJs}
         }
     });
 
-    // ---- App-declared tool: createEC2Instance ----
-    // Declaring the tool on the app (rather than the server) means we get
-    // first-party control over the UI update when the LLM calls it.
-
-    const CREATE_TOOL = {
-        name: "createEC2Instance",
-        title: "Create EC2 instance",
-        description: "Creates a new EC2 instance and adds it to the visible instance list.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                name: { type: "string", description: "Friendly name for the instance." },
-                instanceType: {
-                    type: "string",
-                    description: "Instance type, e.g. t3.medium, m5.large.",
-                },
-                availabilityZone: {
-                    type: "string",
-                    description: "Availability Zone, e.g. us-east-1a.",
-                },
-            },
-            required: ["name", "instanceType", "availabilityZone"],
-        },
-    };
-
-    app.onlisttools = async () => ({ tools: [CREATE_TOOL] });
-
-    app.oncalltool = async (params) => {
-        if (params.name !== "createEC2Instance") {
-            throw new Error("Unknown tool: " + params.name);
-        }
-        const args = params.arguments ?? {};
-        const name = String(args.name ?? "").trim();
-        const type = String(args.instanceType ?? "t3.medium").trim();
-        const az = String(args.availabilityZone ?? "us-east-1a").trim();
-        if (!name) {
-            return {
-                isError: true,
-                content: [{ type: "text", text: "name is required" }],
-            };
-        }
-
-        // Generate a pseudo instance id + private IP.
-        const hex = () => Math.floor(Math.random() * 16).toString(16);
-        const id = "i-0" + Array.from({ length: 16 }, hex).join("");
-        const privateIp = "10.0." + (Math.floor(Math.random() * 250) + 1) +
-                          "." + (Math.floor(Math.random() * 250) + 1);
-        const newInstance = {
-            name, id, state: "pending", type,
-            statusCheck: "Initializing", alarm: "No alarms", az,
-            publicIp: "-", privateIp, vpc: "vpc-0fa112233",
-            launchTime: new Date().toISOString(),
-        };
-        INSTANCES.unshift(newInstance);
-        render();
-
-        // Transition pending → running after a short delay.
-        setTimeout(() => {
-            const r = INSTANCES.find(x => x.id === id);
-            if (r && r.state === "pending") {
-                r.state = "running";
-                r.statusCheck = "2/2 checks passed";
-                r.publicIp = (Math.floor(Math.random() * 90) + 10) + "." +
-                             (Math.floor(Math.random() * 250) + 1) + "." +
-                             (Math.floor(Math.random() * 250) + 1) + "." +
-                             (Math.floor(Math.random() * 250) + 1);
-                render();
-            }
-        }, 2000);
-
-        return {
-            content: [{
-                type: "text",
-                text: "Launched " + id + " (" + type + ") in " + az +
-                      " with name \"" + name + "\". Current state: pending.",
-            }],
-        };
-    };
-
-    // Connect after handlers are registered so we don't miss any early notifications.
     await app.connect();
 
     render();

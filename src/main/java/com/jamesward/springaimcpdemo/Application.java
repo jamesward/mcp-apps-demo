@@ -58,6 +58,31 @@ class EC2App {
     }
 
     @McpTool(
+            title = "Create EC2 Instance",
+            name = "createEC2Instance",
+            description = "Creates a new EC2 instance with the given name, instance type, and availability zone.")
+    public String createEC2Instance(
+            @McpToolParam(required = true,
+                    description = "Friendly name tag for the new instance.")
+            String name,
+            @McpToolParam(required = true,
+                    description = "Instance type, e.g. t3.medium, m5.large.")
+            String instanceType,
+            @McpToolParam(required = true,
+                    description = "Availability Zone, e.g. us-east-1a.")
+            String availabilityZone) {
+
+        String trimmedName = name == null ? "" : name.trim();
+        if (trimmedName.isEmpty()) {
+            return "Name is required.";
+        }
+        String type = instanceType == null || instanceType.isBlank() ? "t3.medium" : instanceType.trim();
+        String az = availabilityZone == null || availabilityZone.isBlank() ? "us-east-1a" : availabilityZone.trim();
+        return "Launched a new " + type + " instance in " + az
+                + " with name \"" + trimmedName + "\". Current state: pending.";
+    }
+
+    @McpTool(
             title = "EC2 Instance Action",
             name = "ec2Action",
             description = "Performs a lifecycle action (start, stop, reboot, terminate) on one or more EC2 instances.")
