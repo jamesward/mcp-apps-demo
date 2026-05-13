@@ -74,6 +74,39 @@
 
         .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+        .dropdown { position: relative; display: inline-block; }
+        .menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            background: #fff;
+            border: 1px solid var(--aws-border);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,28,36,.18);
+            min-width: 190px;
+            z-index: 20;
+            display: none;
+            padding: 4px 0;
+        }
+        .menu.open { display: block; }
+        .menu-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 8px 14px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--aws-text);
+        }
+        .menu-item:hover:not(:disabled) { background: var(--aws-bg-hover); color: var(--aws-blue); }
+        .menu-item:disabled { color: #98a2ac; cursor: not-allowed; }
+        .menu-item.danger { color: var(--aws-red); }
+        .menu-item.danger:hover:not(:disabled) { background: var(--aws-red-bg); color: var(--aws-red); }
+        .menu-sep { height: 1px; background: var(--aws-border-light); margin: 4px 0; }
+
         .btn {
             font-family: inherit;
             font-size: 14px;
@@ -289,6 +322,9 @@
             .search { background: #16212f; color: var(--aws-text); border-color: var(--aws-border); }
             .refresh-btn { background: #16212f; color: var(--aws-text-secondary); border-color: var(--aws-border); }
             .refresh-btn:hover { background: var(--aws-bg-hover); }
+            .menu { background: #16212f; border-color: var(--aws-border); }
+            .menu-item { color: var(--aws-text); }
+            .menu-sep { background: var(--aws-border-light); }
         }
     </style>
 </head>
@@ -302,7 +338,16 @@
             </div>
             <div class="actions">
                 <button class="btn" id="connect-btn" disabled>Connect</button>
-                <button class="btn" id="state-btn" disabled>Instance state <span class="caret">▾</span></button>
+                <div class="dropdown" id="state-dropdown">
+                    <button class="btn" id="state-btn" disabled aria-haspopup="menu" aria-expanded="false">Instance state <span class="caret">▾</span></button>
+                    <div class="menu" id="state-menu" role="menu">
+                        <button class="menu-item" data-action="start" role="menuitem">Start instance</button>
+                        <button class="menu-item" data-action="stop" role="menuitem">Stop instance</button>
+                        <button class="menu-item" data-action="reboot" role="menuitem">Reboot instance</button>
+                        <div class="menu-sep"></div>
+                        <button class="menu-item danger" data-action="terminate" role="menuitem">Terminate instance</button>
+                    </div>
+                </div>
                 <button class="btn" id="actions-btn" disabled>Actions <span class="caret">▾</span></button>
                 <button class="btn primary" id="launch-btn">Launch instances <span class="caret">▾</span></button>
             </div>
@@ -550,6 +595,94 @@ $unsafe{extAppsJs}
         document.getElementById('connect-btn').disabled = !any;
         document.getElementById('state-btn').disabled = !any;
         document.getElementById('actions-btn').disabled = !any;
+        updateStateMenuItems();
+    }
+
+    // Which selected rows are eligible for each lifecycle action
+    function eligibleIdsFor(action) {
+        const selectedRows = INSTANCES.filter(r => selected.has(r.id));
+        switch (action) {
+            case 'start':     return selectedRows.filter(r => r.state === 'stopped').map(r => r.id);
+            case 'stop':      return selectedRows.filter(r => r.state === 'running').map(r => r.id);
+            case 'reboot':    return selectedRows.filter(r => r.state === 'running').map(r => r.id);
+            case 'terminate': return selectedRows.filter(r => r.state !== 'terminated').map(r => r.id);
+            default:          return [];
+        }
+    }
+
+    function updateStateMenuItems() {
+        document.querySelectorAll('#state-menu .menu-item').forEach(item => {
+            const action = item.dataset.action;
+            item.disabled = eligibleIdsFor(action).length === 0;
+        });
+    }
+
+    // Dropdown open/close + menu item handlers
+    const stateBtn = document.getElementById('state-btn');
+    const stateMenu = document.getElementById('state-menu');
+
+    function closeStateMenu() {
+        stateMenu.classList.remove('open');
+        stateBtn.setAttribute('aria-expanded', 'false');
+    }
+    function openStateMenu() {
+        stateMenu.classList.add('open');
+        stateBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    stateBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (stateBtn.disabled) return;
+        stateMenu.classList.contains('open') ? closeStateMenu() : openStateMenu();
+    });
+    document.addEventListener('click', e => {
+        if (!document.getElementById('state-dropdown').contains(e.target)) closeStateMenu();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeStateMenu();
+    });
+
+    stateMenu.addEventListener('click', async e => {
+        const item = e.target.closest('.menu-item');
+        if (!item || item.disabled) return;
+        closeStateMenu();
+        await performAction(item.dataset.action);
+    });
+
+    async function performAction(action) {
+        const ids = eligibleIdsFor(action);
+        if (ids.length === 0) return;
+
+        // Optimistic "in-flight" state
+        const inFlight = { start: 'pending', stop: 'stopping', reboot: 'pending', terminate: 'terminated' }[action];
+        const finalState = { start: 'running', stop: 'stopped', reboot: 'running', terminate: 'terminated' }[action];
+        ids.forEach(id => {
+            const r = INSTANCES.find(x => x.id === id);
+            if (r) r.state = inFlight;
+        });
+        render();
+
+        // Call the MCP server tool via the ext-apps bridge
+        try {
+            await app.callServerTool({
+                name: "ec2Action",
+                arguments: { action, instanceIds: ids },
+            });
+        } catch (err) {
+            console.error("ec2Action failed", err);
+        }
+
+        // Settle to the final state after a short delay to simulate the lifecycle
+        if (finalState !== inFlight) {
+            setTimeout(() => {
+                ids.forEach(id => {
+                    const r = INSTANCES.find(x => x.id === id);
+                    // Only advance if still in the transient state (user may have acted again)
+                    if (r && r.state === inFlight) r.state = finalState;
+                });
+                render();
+            }, 1500);
+        }
     }
 
     function updateSelectAllState(visibleRows) {
@@ -639,12 +772,12 @@ $unsafe{extAppsJs}
             : ` Sorted by ${sortKey} ${sortDir}.`;
         const summary = `EC2 instances — showing ${shown} of ${total} (${stateSummary}).${filterPart}${sel}`;
 
-        try {
-            await app.sendMessage({
-                role: "user",
-                content: [{ type: "text", text: summary }],
-            });
-        } catch (_) { /* best-effort */ }
+        // try {
+        //     await app.sendMessage({
+        //         role: "user",
+        //         content: [{ type: "text", text: summary }],
+        //     });
+        // } catch (_) { /* best-effort */ }
     }
 
     render();

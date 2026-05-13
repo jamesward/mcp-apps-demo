@@ -3,6 +3,7 @@ package com.jamesward.springaimcpdemo;
 import gg.jte.generated.precompiled.StaticTemplates;
 import org.springframework.ai.mcp.annotation.McpResource;
 import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.ai.mcp.annotation.context.MetaProvider;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,6 +14,7 @@ import org.webjars.WebJarVersionLocator;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -53,6 +55,36 @@ class EC2App {
             metaProvider = EC2MetaProvider.class)
     public String listEC2Instances() {
         return "Opening the EC2 instances console.";
+    }
+
+    @McpTool(
+            title = "EC2 Instance Action",
+            name = "ec2Action",
+            description = "Performs a lifecycle action (start, stop, reboot, terminate) on one or more EC2 instances.")
+    public String ec2Action(
+            @McpToolParam(required = true,
+                    description = "Lifecycle action to perform. One of: start, stop, reboot, terminate.")
+            String action,
+            @McpToolParam(required = true,
+                    description = "List of EC2 instance IDs to apply the action to (e.g. i-0a1b2c3d4e5f60011).")
+            List<String> instanceIds) {
+
+        String normalized = action == null ? "" : action.trim().toLowerCase();
+        if (!List.of("start", "stop", "reboot", "terminate").contains(normalized)) {
+            return "Unsupported action '" + action + "'. Expected: start, stop, reboot, terminate.";
+        }
+        if (instanceIds == null || instanceIds.isEmpty()) {
+            return "No instanceIds provided.";
+        }
+
+        String verb = switch (normalized) {
+            case "start" -> "Starting";
+            case "stop" -> "Stopping";
+            case "reboot" -> "Rebooting";
+            case "terminate" -> "Terminating";
+            default -> "Acting on";
+        };
+        return verb + " " + instanceIds.size() + " instance(s): " + String.join(", ", instanceIds) + ".";
     }
 
     public static final class EC2MetaProvider implements MetaProvider {
