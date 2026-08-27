@@ -18,7 +18,7 @@ java {
 }
 
 dependencies {
-    implementation(platform("org.springframework.ai:spring-ai-bom:2.0.0"))
+    implementation(platform("org.springframework.ai:spring-ai-bom:2.0.1"))
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webflux")
     implementation("gg.jte:jte-runtime:3.2.4")
     jteGenerate("gg.jte:jte-models:3.2.4")
