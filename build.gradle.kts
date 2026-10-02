@@ -1,4 +1,5 @@
 plugins {
+    id("com.skillsjars.gradle-plugin") version "0.1.4"
     java
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
@@ -25,4 +26,13 @@ dependencies {
 
     implementation("org.webjars:webjars-locator-lite:1.1.5")
     runtimeOnly("org.webjars.npm:modelcontextprotocol__ext-apps:1.5.0")
+}
+
+// Agent Skills, extracted with ./gradlew extractSkillsJars
+dependencies {
+    skill("com.jamesward:skills:0.0.10")
+}
+
+skillsjars {
+    outputDir.set(layout.projectDirectory.dir(".kiro/skills"))
 }
