@@ -1,7 +1,7 @@
 plugins {
     id("com.skillsjars.gradle-plugin") version "0.2.0"
     java
-    id("org.springframework.boot") version "4.1.1"
+    id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
     id("gg.jte.gradle") version("3.2.4")
 }
@@ -19,7 +19,7 @@ java {
 }
 
 dependencies {
-    implementation(platform("org.springframework.ai:spring-ai-bom:2.0.1"))
+    implementation(platform("org.springframework.ai:spring-ai-bom:2.0.2"))
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webflux")
     implementation("gg.jte:jte-runtime:3.2.4")
     jteGenerate("gg.jte:jte-models:3.2.4")
@@ -30,7 +30,7 @@ dependencies {
 
 // Agent Skills, extracted with ./gradlew extractSkillsJars
 dependencies {
-    skill("com.jamesward:skills:0.0.17")
+    skill("com.jamesward:skills:0.0.18")
 }
 
 skillsjars {
